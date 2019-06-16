@@ -8,9 +8,12 @@
 
 import UIKit
 import RealmSwift
+import SwipeCellKit
+import ChameleonFramework
 
-class ToDoListViewController: UITableViewController {
+class ToDoListViewController: SwipeTableViewController {
     
+    @IBOutlet weak var searchBar: UISearchBar!
     
     let realm = try! Realm()
     var toDoItems : Results<Item>?
@@ -19,14 +22,38 @@ class ToDoListViewController: UITableViewController {
         didSet {
             loadData()
         }
+        
     }
     
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        tableView.rowHeight = 80.00
+        tableView.separatorStyle = .none
         
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+       
+        
+        title = selectedCategory?.name
+        guard let colorHex = selectedCategory?.color else { fatalError()}
+          updatNavigationBar(withHexCode: colorHex)
+        
+            
+        
+            
+       
+                
+        }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        
+        updatNavigationBar(withHexCode: "1D9BF6")
+        
+    }
+    
     
     //MARK : Tableview Datasource methods
     
@@ -39,12 +66,18 @@ class ToDoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
        
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell" , for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = toDoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
             
+            if let color = UIColor(hexString: selectedCategory!.color)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(toDoItems!.count))
+            {
             
+                cell.backgroundColor = color
+                cell.textLabel?.textColor = ContrastColorOf(backgroundColor: color, returnFlat: true)
+            
+            }
             //MARK : To Add Checkmark on selection
             // using ternary operator
             cell.accessoryType = item.done ? .checkmark : .none
@@ -86,7 +119,9 @@ class ToDoListViewController: UITableViewController {
         
         tableView.deselectRow(at: indexPath, animated: true)
         
-        tableView.reloadData()
+        //tableView.reloadData()
+        //to make the animation noticeable used this instead of reloadTableData()
+        tableView.cellForRow(at: indexPath)?.accessoryType = toDoItems![indexPath.row].done ? .checkmark : .none
     }
     
     //MARK : ADD NEW ITEMS TO TODO LIST
@@ -137,6 +172,23 @@ class ToDoListViewController: UITableViewController {
         
     }
     
+    override func update(at indexPath: IndexPath) {
+        if let itemToBeDeleted = self.toDoItems?[indexPath.row] {
+            
+            
+            do {
+                try realm.write {
+                    realm.delete(itemToBeDeleted)
+                    print("successfully deleted the item")
+                }
+            } catch {
+                print("error deleting the item\(error)")
+            }
+            
+            
+        }
+    }
+    
 }
 
 //MARK: - search bar methods
@@ -162,5 +214,19 @@ extension ToDoListViewController: UISearchBarDelegate {
         tableView.reloadData()
     }
 
+    //MARK :- NavBar setup code methods
+    
+    func updatNavigationBar(withHexCode colorHexCode : String) {
+        guard let navBar = navigationController?.navigationBar else {
+            fatalError("navigation controller does not exist")
+        }
+        guard let navBarColor = UIColor(hexString: colorHexCode) else { fatalError() }
+        
+        navBar.barTintColor = navBarColor
+        searchBar.barTintColor = navBarColor
+        navBar.tintColor = ContrastColorOf(backgroundColor: navBarColor, returnFlat: true)
+        navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor : ContrastColorOf(backgroundColor: navBarColor, returnFlat: true)]
+    }
+    
 
 }

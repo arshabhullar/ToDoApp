@@ -8,8 +8,10 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+
+class CategoryViewController: SwipeTableViewController {
 
     
     let realm = try! Realm()
@@ -20,6 +22,9 @@ class CategoryViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         loadData()
+        
+        tableView.rowHeight = 80.00
+        tableView.separatorStyle = .none
 
     }
     
@@ -33,8 +38,13 @@ class CategoryViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell" , for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         cell.textLabel?.text = toDoCategories?[indexPath.row].name ?? "No Categories Added Yet"
+        
+        guard let categoryColor = UIColor(hexString: toDoCategories?[indexPath.row].color) else { fatalError() }
+        cell.backgroundColor = categoryColor
+        cell.textLabel?.textColor = ContrastColorOf(backgroundColor: categoryColor, returnFlat: true)
+    
         return cell
         
     }
@@ -65,6 +75,7 @@ class CategoryViewController: UITableViewController {
             
             let newCategory = Category()
             newCategory.name = textField.text!
+            newCategory.color = (UIColor.randomFlat()?.hexValue())!
             self.save(category: newCategory)
             
             
@@ -104,25 +115,28 @@ class CategoryViewController: UITableViewController {
     func loadData ()  {
         
         toDoCategories = realm.objects(Category.self)
+        toDoCategories = toDoCategories?.sorted(byKeyPath: "name", ascending: true)
         tableView.reloadData()
         
     }
     
-    
-}
-
-extension CategoryViewController : UISearchBarDelegate {
-    
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        toDoCategories = toDoCategories?.filter("name CONTAINS[cd] %@", searchBar.text!)
-        if searchBar.text?.count == 0 {
-            loadData()
-            DispatchQueue.main.async {
-                searchBar.resignFirstResponder()
+    override func update(at indexPath: IndexPath) {
+        if let categoryToBeDeleted = self.toDoCategories?[indexPath.row] {
+           
+            
+            do {
+                try realm.write {
+                    realm.delete(categoryToBeDeleted)
+                    print("successfully deleted the category")
+                }
+            } catch {
+                print("error deleting the category\(error)")
             }
+        
+        
         }
-        tableView.reloadData()
     }
+    
     
     
 }
